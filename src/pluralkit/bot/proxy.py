@@ -1,308 +1,208 @@
-import ciso8601
 import logging
 import re
-import time
-from typing import List, Optional
+from io import BytesIO
+from typing import List, Tuple, Optional
 
-import aiohttp
 import discord
 
-from pluralkit import db, stats
-from pluralkit.bot import channel_logger, utils
-
-logger = logging.getLogger("pluralkit.bot.proxy")
-
-def extract_leading_mentions(message_text):
-    # This regex matches one or more mentions at the start of a message, separated by any amount of spaces
-    match = re.match(r"^(<(@|@!|#|@&|a?:\w+:)\d+>\s*)+", message_text)
-    if not match:
-        return message_text, ""
-
-    # Return the text after the mentions, and the mentions themselves
-    return message_text[match.span(0)[1]:].strip(), match.group(0)
+from pluralkit.bot import PluralKitBot, utils
+from pluralkit.db import Database, ProxyMember, DatabaseConnection, MessageInfo
 
 
-def match_member_proxy_tags(member: db.ProxyMember, message_text: str):
-    # Skip members with no defined proxy tags
-    if not member.prefix and not member.suffix:
-        return None
-
-    # DB defines empty prefix/suffixes as None, replace with empty strings to prevent errors
-    prefix = member.prefix or ""
-    suffix = member.suffix or ""
-
-    # Ignore mentions at the very start of the message, and match proxy tags after those
-    message_text, leading_mentions = extract_leading_mentions(message_text)
-
-    logger.debug("Matching text '{}' and leading mentions '{}' to proxy tags {}text{}".format(message_text, leading_mentions, prefix, suffix))
-
-    if message_text.startswith(member.prefix or "") and message_text.endswith(member.suffix or ""):
-        prefix_length = len(prefix)
-        suffix_length = len(suffix)
-
-        # If suffix_length is 0, the last bit of the slice will be "-0", and the slice will fail
-        if suffix_length > 0:
-            inner_string = message_text[prefix_length:-suffix_length]
-        else:
-            inner_string = message_text[prefix_length:]
-
-        # Add the mentions we stripped back
-        inner_string = leading_mentions + inner_string
-        return inner_string
+class NoWebhookPermission(Exception): pass
 
 
-def match_proxy_tags(members: List[db.ProxyMember], message_text: str):
-    # Sort by specificity (members with both prefix and suffix go higher)
-    # This will make sure more "precise" proxy tags get tried first
-    members: List[db.ProxyMember] = sorted(members, key=lambda x: int(
-        bool(x.prefix)) + int(bool(x.suffix)), reverse=True)
-
-    for member in members:
-        match = match_member_proxy_tags(member, message_text)
-        if match is not None: # Using "is not None" because an empty string is OK here too
-            logger.debug("Matched member {} with inner text '{}'".format(member.hid, match))
-            return member, match
+class NoDeletePermission(Exception): pass
 
 
-def get_message_attachment_url(message: discord.Message):
-    if not message.attachments:
-        return None
+class ProxyModule:
+    bot: PluralKitBot
+    db: Database
+    logger: logging.Logger
 
-    attachment = message.attachments[0]
-    if "proxy_url" in attachment:
-        return attachment["proxy_url"]
+    def __init__(self, bot, db):
+        self.logger = logging.getLogger("pluralkit.proxy")
+        self.bot = bot
+        self.db = db
 
-    if "url" in attachment:
-        return attachment["url"]
-
-
-# TODO: possibly move this to bot __init__ so commands can access it too
-class WebhookPermissionError(Exception):
-    pass
-
-
-class DeletionPermissionError(Exception):
-    pass
-
-
-class Proxy:
-    def __init__(self, client: discord.Client, token: str, logger: channel_logger.ChannelLogger):
-        self.logger = logging.getLogger("pluralkit.bot.proxy")
-        self.session = aiohttp.ClientSession()
-        self.client = client
-        self.token = token
-        self.channel_logger = logger
-
-    async def save_channel_webhook(self, conn, channel: discord.Channel, id: str, token: str) -> (str, str):
-        await db.add_webhook(conn, channel.id, id, token)
-        return id, token
-
-    async def create_and_add_channel_webhook(self, conn, channel: discord.Channel) -> (str, str):
-        # This method is only called if there's no webhook found in the DB (and hopefully within a transaction)
-        # No need to worry about error handling if there's a DB conflict (which will throw an exception because DB constraints)
-        req_headers = {"Authorization": "Bot {}".format(self.token)}
-
-        # First, check if there's already a webhook belonging to the bot
-        async with self.session.get("https://discordapp.com/api/v6/channels/{}/webhooks".format(channel.id),
-                                    headers=req_headers) as resp:
-            if resp.status == 200:
-                webhooks = await resp.json()
-                for webhook in webhooks:
-                    if webhook["user"]["id"] == self.client.user.id:
-                        # This webhook belongs to us, we can use that, return it and save it
-                        return await self.save_channel_webhook(conn, channel, webhook["id"], webhook["token"])
-            elif resp.status == 403:
-                self.logger.warning(
-                    "Did not have permission to fetch webhook list (server={}, channel={})".format(channel.server.id,
-                                                                                                   channel.id))
-                raise WebhookPermissionError()
-            else:
-                raise discord.HTTPException(resp, await resp.text())
-
-        # Then, try submitting a new one
-        req_data = {"name": "PluralKit Proxy Webhook"}
-        async with self.session.post("https://discordapp.com/api/v6/channels/{}/webhooks".format(channel.id),
-                                     json=req_data, headers=req_headers) as resp:
-            if resp.status == 200:
-                webhook = await resp.json()
-                return await self.save_channel_webhook(conn, channel, webhook["id"], webhook["token"])
-            elif resp.status == 403:
-                self.logger.warning(
-                    "Did not have permission to create webhook (server={}, channel={})".format(channel.server.id,
-                                                                                               channel.id))
-                raise WebhookPermissionError()
-            else:
-                raise discord.HTTPException(resp, await resp.text())
-
-        # Should not be reached without an exception being thrown
-
-    async def get_webhook_for_channel(self, conn, channel: discord.Channel):
-        async with conn.transaction():
-            hook_match = await db.get_webhook(conn, channel.id)
-            if not hook_match:
-                # We don't have a webhook, create/add one
-                return await self.create_and_add_channel_webhook(conn, channel)
-            else:
-                return hook_match
-
-    async def do_proxy_message(self, conn, member: db.ProxyMember, original_message: discord.Message, text: str,
-                               attachment_url: str, has_already_retried=False):
-        hook_id, hook_token = await self.get_webhook_for_channel(conn, original_message.channel)
-
-        form_data = aiohttp.FormData()
-        form_data.add_field("username", "{} {}".format(member.name, member.tag or "").strip())
-
-        if text:
-            form_data.add_field("content", text)
-
-        if attachment_url:
-            attachment_resp = await self.session.get(attachment_url)
-            form_data.add_field("file", attachment_resp.content, content_type=attachment_resp.content_type,
-                                filename=attachment_resp.url.name)
-
-        if member.avatar_url:
-            form_data.add_field("avatar_url", member.avatar_url)
-
-        time_before = time.perf_counter()
-        async with self.session.post(
-                "https://discordapp.com/api/v6/webhooks/{}/{}?wait=true".format(hook_id, hook_token),
-                data=form_data) as resp:
-            if resp.status == 200:
-                message = await resp.json()
-
-                # Report webhook stats to Influx
-                await stats.report_webhook(time.perf_counter() - time_before, True)
-
-                await db.add_message(conn, message["id"], message["channel_id"], member.id, original_message.author.id,
-                                     text or "")
-
-                try:
-                    await self.client.delete_message(original_message)
-                except discord.Forbidden:
-                    self.logger.warning(
-                        "Did not have permission to delete original message (server={}, channel={})".format(
-                            original_message.server.id, original_message.channel.id))
-                    raise DeletionPermissionError()
-                except discord.NotFound:
-                    self.logger.warning("Tried to delete message when proxying, but message was already gone (server={}, channel={})".format(original_message.server.id, original_message.channel.id))
-
-                message_image = None
-                if message["attachments"]:
-                    first_attachment = message["attachments"][0]
-                    if "width" in first_attachment and "height" in first_attachment:
-                        # Only log attachments that are actually images
-                        message_image = first_attachment["url"]
-
-                await self.channel_logger.log_message_proxied(conn,
-                                                              server_id=original_message.server.id,
-                                                              channel_name=original_message.channel.name,
-                                                              channel_id=original_message.channel.id,
-                                                              sender_name=original_message.author.name,
-                                                              sender_disc=original_message.author.discriminator,
-                                                              member_name=member.name,
-                                                              member_hid=member.hid,
-                                                              member_avatar_url=member.avatar_url,
-                                                              system_name=member.system_name,
-                                                              system_hid=member.system_hid,
-                                                              message_text=text,
-                                                              message_image=message_image,
-                                                              message_timestamp=ciso8601.parse_datetime(
-                                                                  message["timestamp"]),
-                                                              message_id=message["id"])
-            elif resp.status == 404 and not has_already_retried:
-                # Report webhook stats to Influx
-                await stats.report_webhook(time.perf_counter() - time_before, False)
-
-                # Webhook doesn't exist. Delete it from the DB, create, and add a new one
-                self.logger.warning("Webhook registered in DB doesn't exist, deleting hook from DB, re-adding, and trying again (channel={}, hook={})".format(original_message.channel.id, hook_id))
-                await db.delete_webhook(conn, original_message.channel.id)
-                await self.create_and_add_channel_webhook(conn, original_message.channel)
-
-                # Then try again all over, making sure to not retry again and go in a loop should it continually fail
-                return await self.do_proxy_message(conn, member, original_message, text, attachment_url, has_already_retried=True)
-            else:
-                # Report webhook stats to Influx
-                await stats.report_webhook(time.perf_counter() - time_before, False)
-
-                raise discord.HTTPException(resp, await resp.text())
-
-    async def try_proxy_message(self, conn, message: discord.Message):
-        # Can't proxy in DMs, webhook creation will explode
-        if message.channel.is_private:
-            return False
-
-        # Big fat query to find every member associated with this account
-        # Returned member object has a few more keys (system tag, for example)
-        members = await db.get_members_by_account(conn, account_id=message.author.id)
-
-        match = match_proxy_tags(members, message.content)
-        if not match:
-            return False
-
-        member, text = match
-        attachment_url = get_message_attachment_url(message)
-
-        # Can't proxy a message with no text AND no attachment
-        if not text and not attachment_url:
-            self.logger.debug("Skipping message because of no text and no attachment")
-            return False
-
+    async def get_webhook(self, conn: DatabaseConnection, channel: discord.TextChannel) -> discord.Webhook:
         try:
-            async with conn.transaction():
-                await self.do_proxy_message(conn, member, message, text=text, attachment_url=attachment_url)
-        except WebhookPermissionError:
-            embed = utils.make_error_embed("PluralKit does not have permission to manage webhooks for this channel. Contact your local server administrator to fix this.")
-            await self.client.send_message(message.channel, embed=embed)
-        except DeletionPermissionError:
-            embed = utils.make_error_embed("PluralKit does not have permission to delete messages in this channel. Contact your local server administrator to fix this.")
-            await self.client.send_message(message.channel, embed=embed)
+            # Check the DB for a webhook registered to this channel
+            hook_data = await conn.get_webhook(channel.id)
+            if hook_data:
+                hook_id, hook_token = hook_data
 
-        return True
+                # Monkey-patching to fix a bug in the library, see https://github.com/Rapptz/discord.py/issues/1242
+                adapter = discord.AsyncWebhookAdapter(self.bot.http._session)
+                adapter.store_user = adapter._store_user
+                return discord.Webhook.partial(hook_id, hook_token,
+                                               adapter=adapter)
 
-    async def try_delete_message(self, conn, message_id: str, check_user_id: Optional[str], delete_message: bool, deleted_by_moderator: bool):
-        async with conn.transaction():
-            # Find the message in the DB, and make sure it's sent by the user (if we need to check)
-            if check_user_id:
-                db_message = await db.get_message_by_sender_and_id(conn, message_id=message_id, sender_id=check_user_id)
+            # Okay, we didn't find one. Let's check the hook list for an existing one we haven't registered
+            channel_webhooks: List[discord.Webhook] = await channel.webhooks()
+
+            suitable_webhooks = [hook for hook in channel_webhooks if
+                                 hook.user.id == self.bot.user.id and hook.name == "PluralKit Proxy Webhook"]
+            if suitable_webhooks:
+                hook = suitable_webhooks[0]
+
+                # Let's also add this to the database, since it wasn't there before, apparently.
+                await conn.add_webhook(channel.id, hook.id, hook.token)
+
+                return hook
+
+            # No hook there, either... time to create one.
+            hook = await channel.create_webhook(name="PluralKit Proxy Webhook")
+
+            # Add this to the DB, and return
+            await conn.add_webhook(channel.id, hook.id, hook.token)
+            return hook
+        except discord.Forbidden:
+            # Everything we do above is webhook-related, so this error must be because we have no webhook permissions
+            raise NoWebhookPermission()
+
+    async def send_proxy_message(self, conn: DatabaseConnection, channel: discord.TextChannel, member: ProxyMember,
+                                 original_message: discord.Message, text: str):
+        hook = await self.get_webhook(conn, channel)
+
+        file = None
+        if original_message.attachments:
+            bio = BytesIO()
+            await original_message.attachments[0].save(bio)
+            file = discord.File(bio, original_message.attachments[0].filename)
+
+        if not text and not file:
+            # Don't bother with messages with no content AND no file
+            return
+
+        # Send the actual message
+        message = await hook.send(username=member.full_name(), avatar_url=member.avatar_url, content=text, file=file,
+                                  wait=True)
+
+        # And save it in the database
+        await conn.add_message(message.id, channel.id, member.id, original_message.author.id, text)
+
+        # Plus, broadcast a message to the rest of the bot (eg. for logging)
+        self.bot.dispatch("message_proxied", message, member)
+
+    async def on_message(self, message: discord.Message):
+        # Ignore messages from bots
+        if message.author.bot:
+            return
+
+        # Ignore messages in DMs
+        if not isinstance(message.channel, discord.TextChannel):
+            return
+
+        async with self.db.get() as conn:
+            # Look up the sender in the DB, get a list of all their system members
+            members = await conn.get_members_by_account(message.author.id)
+
+            # Match the message and find a corresponding member with the included proxy tags
+            match = self.match_proxy_tags(members, message.content)
+
+            if match:
+                # If we found a match, send the message
+                member, proxy_text = match
+                await self.send_proxy_message(conn, message.channel, member, message, proxy_text)
+
+                # And then delete the original message
+                try:
+                    # We use the raw call for the Audit Log reason
+                    await self.bot.http.delete_message(message.channel.id, message.id, reason="PluralKit: Deleted proxy trigger")
+                except discord.Forbidden:
+                    raise NoDeletePermission()
+
+    def extract_leading_mentions(self, message_text: str) -> Tuple[str, str]:
+        # This regex matches one or more mentions at the start of a message, separated by any amount of spaces
+        match = re.match(r"^(<(@|@!|#|@&|a?:\w+:)\d+>\s*)+", message_text)
+        if not match:
+            return message_text, ""
+
+        # Return the text after the mentions, and the mentions themselves
+        return message_text[match.span(0)[1]:].strip(), match.group(0)
+
+    def match_member_proxy_tags(self, member: ProxyMember, message_text: str) -> Optional[str]:
+        # Skip members with no defined proxy tags
+        if not member.prefix and not member.suffix:
+            return None
+
+        # DB defines empty prefix/suffixes as None, replace with empty strings to prevent errors
+        prefix = member.prefix or ""
+        suffix = member.suffix or ""
+
+        # Ignore mentions at the very start of the message, and match proxy tags after those
+        message_text, leading_mentions = self.extract_leading_mentions(message_text)
+
+        self.logger.debug(
+            "Matching text '{}' and leading mentions '{}' to proxy tags {}text{}".format(message_text, leading_mentions,
+                                                                                         prefix, suffix))
+
+        if message_text.startswith(member.prefix or "") and message_text.endswith(member.suffix or ""):
+            prefix_length = len(prefix)
+            suffix_length = len(suffix)
+
+            # If suffix_length is 0, the last bit of the slice will be "-0", and the slice will fail
+            if suffix_length > 0:
+                inner_string = message_text[prefix_length:-suffix_length]
             else:
-                db_message = await db.get_message(conn, message_id=message_id)
+                inner_string = message_text[prefix_length:]
 
-            if db_message:
-                self.logger.debug("Deleting message {}".format(message_id))
-                channel = self.client.get_channel(str(db_message.channel))
+            # Add the mentions we stripped back
+            inner_string = leading_mentions + inner_string
+            return inner_string
 
-                # If we should also delete the actual message, do that
-                if delete_message:
-                    message = await self.client.get_message(channel, message_id)
+    def match_proxy_tags(self, members: List[ProxyMember], message_text: str) -> Optional[Tuple[ProxyMember, str]]:
+        # Sort by specificity (members with both prefix and suffix go higher)
+        # This will make sure more "precise" proxy tags get tried first
+        members: List[ProxyMember] = sorted(members, key=lambda x: int(
+            bool(x.prefix)) + int(bool(x.suffix)), reverse=True)
 
-                    try:
-                        await self.client.delete_message(message)
-                    except discord.Forbidden:
-                        self.logger.warning(
-                            "Did not have permission to remove message, aborting deletion (server={}, channel={})".format(
-                                channel.server.id, channel.id))
-                        return
+        for member in members:
+            match = self.match_member_proxy_tags(member, message_text)
+            if match is not None:  # Using "is not None" because an empty string is OK here too
+                self.logger.debug("Matched member {} with inner text '{}'".format(member.hid, match))
+                return member, match
 
-                # Remove it from the DB
-                await db.delete_message(conn, message_id)
 
-                # Then log deletion to logging channel
-                await self.channel_logger.log_message_deleted(conn,
-                                                        server_id=channel.server.id,
-                                                        channel_name=channel.name,
-                                                        member_name=db_message.name,
-                                                        member_hid=db_message.hid,
-                                                        member_avatar_url=db_message.avatar_url,
-                                                        system_name=db_message.system_name,
-                                                        system_hid=db_message.system_hid,
-                                                        message_text=db_message.content,
-                                                        message_id=message_id,
-                                                        deleted_by_moderator=deleted_by_moderator)
+class ProxyDeletionModule:
+    bot: PluralKitBot
+    db: Database
+    logger: logging.Logger
 
-    async def handle_reaction(self, conn, user_id: str, message_id: str, emoji: str):
-        if emoji == "❌":
-            await self.try_delete_message(conn, message_id, check_user_id=user_id, delete_message=True, deleted_by_moderator=False)
+    def __init__(self, bot, db):
+        self.logger = logging.getLogger("pluralkit.proxy")
+        self.bot = bot
+        self.db = db
 
-    async def handle_deletion(self, conn, message_id: str):
-        # Don't delete the message, it's already gone at this point, just handle DB deletion and logging
-        await self.try_delete_message(conn, message_id, check_user_id=None, delete_message=False, deleted_by_moderator=True)
+    async def handle_delete(self, conn: DatabaseConnection, message: MessageInfo):
+        # Delete it from the database
+        await conn.delete_message(message.mid)
+
+        # And fire a bot event (eg. for logging)
+        self.bot.dispatch("proxy_message_deleted", message)
+
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if payload.emoji.name == "❌":
+            async with self.db.get() as conn:
+                msg = await conn.get_message_by_sender_and_id(payload.message_id, payload.user_id)
+                if msg:
+                    await self.handle_delete(conn, msg)
+
+                    # Also delete the message, since this is just a reaction add
+                    # Using the raw call here because we don't actually have a Message object
+                    await self.bot.http.delete_message(payload.channel_id, payload.message_id,
+                                                       reason="PluralKit: Deleted by reaction")
+
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
+        async with self.db.get() as conn:
+            msg = await conn.get_message(payload.message_id)
+            if msg:
+                await self.handle_delete(conn, msg)
+
+    async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent):
+        async with self.db.get() as conn:
+            for message_id in payload.message_ids:
+                msg = await conn.get_message(message_id)
+                if msg:
+                    await self.handle_delete(conn, msg)

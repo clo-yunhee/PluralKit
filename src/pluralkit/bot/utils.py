@@ -1,180 +1,216 @@
-import logging
+import asyncio
 import random
 import re
 import string
+from typing import Tuple, Optional, Union
+from urllib.parse import urlparse
 
+import aiohttp
 import discord
-import humanize
 
-from pluralkit import System, Member, db
-from pluralkit.utils import get_fronters
+from pluralkit import System, Member
+from pluralkit.bot import errors
+from pluralkit.db import DatabaseConnection
 
-logger = logging.getLogger("pluralkit.utils")
 
-def escape(s):
-    return s.replace("`", "\\`")
+class CommandContext:
+    conn: DatabaseConnection
+    client: discord.Client
+    channel: discord.abc.Messageable
+    args: str
+    system: Optional[System]
+    sender: discord.Member
+
+    def __init__(self, conn, client, channel, args, system, sender):
+        self.conn = conn
+        self.client = client
+        self.channel = channel
+        self.args = args
+        self.system = system
+        self.sender = sender
+
+    def has_arg(self):
+        return bool(self.args)
+
+    def pop_arg(self):
+        if not self.has_arg():
+            raise errors.NotEnoughArgumentsProvided()
+
+        new_arg, self.args = next_arg(self.args)
+        return new_arg
+
+    def peek_arg(self):
+        if not self.has_arg():
+            raise errors.NotEnoughArgumentsProvided()
+        new_arg, _ = next_arg(self.args)
+        return new_arg
+
+    async def pop_system(self) -> System:
+        system_name = self.pop_arg()
+        return await param_system(self.conn, self.client, system_name)
+
+    async def pop_member(self, own_system_only=True) -> Member:
+        if own_system_only and not self.system:
+            raise errors.NoRegisteredSystem()
+
+        member_name = self.pop_arg()
+        return await param_member(self.conn, self.system, member_name, enforce_system=own_system_only)
+
+    async def pop_account(self) -> discord.User:
+        account_name = self.pop_arg()
+
+        account = await parse_mention(self.client, account_name)
+        if not account:
+            raise errors.AccountNotFound(account_name)
+        return account
+
+    async def send(self, content):
+        await self.channel.send(content)
+
+    async def send_embed(self, embed):
+        await self.channel.send(embed=embed)
+
+    async def send_help(self, help_page, content):
+        await self.channel.send(content)
+        # TODO
+
+    async def confirm(self, text, user_to_confirm=None):
+        user_to_confirm = user_to_confirm or self.sender
+
+        message: discord.Message = await self.channel.send(text)
+        await message.add_reaction("✅")
+        await message.add_reaction("❌")
+
+        def pred(reaction, user):
+            return user.id == user_to_confirm.id and reaction.emoji in ["✅", "❌"]
+
+        try:
+            reaction, user = await self.client.wait_for("reaction_add", check=pred, timeout=60)
+            return reaction.emoji == "✅"
+        except asyncio.TimeoutError:
+            raise errors.ConfirmTimedOut()
+
+    async def confirm_with_string(self, text, string_to_confirm, user_to_confirm=None):
+        user_to_confirm = user_to_confirm or self.sender
+
+        await self.channel.send(text)
+
+        def pred(message):
+            return message.author.id == user_to_confirm.id
+
+        try:
+            message = await self.client.wait_for("message", check=pred, timeout=60)
+            return message.content == string_to_confirm
+        except asyncio.TimeoutError:
+            raise errors.ConfirmTimedOut()
+
+
+def next_arg(arg_string: str) -> Tuple[str, Optional[str]]:
+    if arg_string.startswith("\""):
+        end_quote = arg_string.find("\"", start=1)
+        if end_quote > 0:
+            return arg_string[1:end_quote], arg_string[end_quote + 1:].strip()
+        else:
+            return arg_string[1:], None
+
+    next_space = arg_string.find(" ")
+    if next_space >= 0:
+        return arg_string[:next_space].strip(), arg_string[next_space:].strip()
+    else:
+        return arg_string.strip(), None
+
+
+async def parse_mention(client: discord.Client, mention: str) -> Optional[discord.User]:
+    # First try matching mention format
+    match = re.fullmatch("<@!?(\\d+)>", mention)
+    if match:
+        user_id = int(match.group(1))
+    else:
+        # If not, try plain ID
+        try:
+            user_id = int(mention)
+        except ValueError:
+            return None
+
+    # First try the ID in the client user cache
+    user = client.get_user(user_id)
+    if user:
+        return user
+
+    # If not found in cache, do full lookup
+    try:
+        return await client.get_user_info(user_id)
+    except discord.NotFound:
+        return None
+
+
+async def param_system(conn: DatabaseConnection, client: discord.Client, param: str, throw: bool = True) -> System:
+    # First try to look up by system ID
+    system = await conn.get_system_by_hid(param)
+    if system:
+        return system
+
+    # Then try to look up by Discord member
+    account = await parse_mention(client, param)
+    if account:
+        system = await conn.get_system_by_account(account.id)
+        if system:
+            return system
+
+    # Nope, didn't find anything
+    if throw:
+        raise errors.SystemParamNotFound(param)
+
+
+async def param_member(conn: DatabaseConnection, system: System, member_name: str, enforce_system: bool = True, throw: bool = True) -> Member:
+    # First look up by member ID
+    member = await conn.get_member_by_hid(member_name)
+    if member and (not enforce_system or member.system == system.id):
+        return member
+
+    # Then look up by name in system
+    if not system:
+        # Can't look up if no system is specified here
+        if throw:
+            raise errors.MemberParamNotFound(member_name)
+        return None
+
+    member = await conn.get_member_by_name(system.id, member_name)
+    if not member and throw:
+        raise errors.MemberParamNotFound(member_name)
+
+    return member
+
+
+async def sender_system(conn: DatabaseConnection, sender: Union[discord.Member, discord.User]) -> System:
+    system = await conn.get_system_by_account(sender.id)
+    if not system:
+        raise errors.NoRegisteredSystem()
+    return system
+
 
 def generate_hid() -> str:
     return "".join(random.choices(string.ascii_lowercase, k=5))
 
-def bounds_check_member_name(new_name, system_tag):
-    if len(new_name) > 32:
-        return "Name cannot be longer than 32 characters."
 
-    if system_tag:
-        if len("{} {}".format(new_name, system_tag)) > 32:
-            return "This name, combined with the system tag ({}), would exceed the maximum length of 32 characters. Please reduce the length of the tag, or use a shorter name.".format(system_tag)
+def ensure_system(f):
+    async def inner(ctx: CommandContext, *args, **kwargs):
+        if not ctx.system:
+            raise errors.NoRegisteredSystem()
+        return await f(ctx, *args, **kwargs)
 
-async def parse_mention(client: discord.Client, mention: str) -> discord.User:
-    # First try matching mention format
-    match = re.fullmatch("<@!?(\\d+)>", mention)
-    if match:
-        try:
-            return await client.get_user_info(match.group(1))
-        except discord.NotFound:
-            return None
-
-    # Then try with just ID
-    try:
-        return await client.get_user_info(str(int(mention)))
-    except (ValueError, discord.NotFound):
-        return None
-
-def parse_channel_mention(mention: str, server: discord.Server) -> discord.Channel:
-    match = re.fullmatch("<#(\\d+)>", mention)
-    if match:
-        return server.get_channel(match.group(1))
-    
-    try:
-        return server.get_channel(str(int(mention)))
-    except ValueError:
-        return None
+    return inner
 
 
-async def get_system_fuzzy(conn, client: discord.Client, key) -> System:
-    if isinstance(key, discord.User):
-        return await db.get_system_by_account(conn, account_id=key.id)
+def ensure_no_system(f):
+    async def inner(ctx: CommandContext, *args, **kwargs):
+        if ctx.system:
+            raise errors.AlreadyRegisteredSystem()
+        return await f(ctx, *args, **kwargs)
 
-    if isinstance(key, str) and len(key) == 5:
-        return await db.get_system_by_hid(conn, system_hid=key)
-
-    account = await parse_mention(client, key)
-    if account:
-        system = await db.get_system_by_account(conn, account_id=account.id)
-        if system:
-            return system
-    return None
+    return inner
 
 
-async def get_member_fuzzy(conn, system_id: int, key: str, system_only=True) -> Member:
-    # First search by hid
-    if system_only:
-        member = await db.get_member_by_hid_in_system(conn, system_id=system_id, member_hid=key)
-    else:
-        member = await db.get_member_by_hid(conn, member_hid=key)
-    if member is not None:
-        return member
-
-    # Then search by name, if we have a system
-    if system_id:
-        member = await db.get_member_by_name(conn, system_id=system_id, member_name=key)
-        if member is not None:
-            return member
-
-def make_default_embed(message):
-    embed = discord.Embed()
-    embed.colour = discord.Colour.blue()
-    embed.description = message
-    return embed
-
-def make_error_embed(message):
-    embed = discord.Embed()
-    embed.colour = discord.Colour.dark_red()
-    embed.description = message
-    return embed
-
-
-async def generate_system_info_card(conn, client: discord.Client, system: System) -> discord.Embed:
-    card = discord.Embed()
-    card.colour = discord.Colour.blue()
-
-    if system.name:
-        card.title = system.name
-
-    if system.avatar_url:
-        card.set_thumbnail(url=system.avatar_url)
-
-    if system.tag:
-        card.add_field(name="Tag", value=system.tag)
-    
-    fronters, switch_time = await get_fronters(conn, system.id)
-    if fronters:
-        names = ", ".join([member.name for member in fronters])
-        fronter_val = "{} (for {})".format(names, humanize.naturaldelta(switch_time))
-        card.add_field(name="Current fronter" if len(fronters) == 1 else "Current fronters", value=fronter_val)
-
-    account_names = []
-    for account_id in await db.get_linked_accounts(conn, system_id=system.id):
-        account = await client.get_user_info(account_id)
-        account_names.append("{}#{}".format(account.name, account.discriminator))
-    card.add_field(name="Linked accounts", value="\n".join(account_names))
-    
-    if system.description:
-        card.add_field(name="Description",
-                       value=system.description, inline=False)
-
-    # Get names of all members
-    member_texts = []
-    for member in await db.get_all_members(conn, system_id=system.id):
-        member_texts.append("{} (`{}`)".format(escape(member.name), member.hid))
-
-    if len(member_texts) > 0:
-        card.add_field(name="Members", value="\n".join(
-            member_texts), inline=False)
-
-    card.set_footer(text="System ID: {}".format(system.hid))
-    return card
-
-
-async def generate_member_info_card(conn, member: Member) -> discord.Embed:
-    system = await db.get_system(conn, system_id=member.system)
-
-    card = discord.Embed()
-    card.colour = discord.Colour.blue()
-
-    name_and_system = member.name
-    if system.name:
-        name_and_system += " ({})".format(system.name)
-
-    card.set_author(name=name_and_system, icon_url=member.avatar_url or discord.Embed.Empty)
-    if member.avatar_url:
-        card.set_thumbnail(url=member.avatar_url)
-
-    # Get system name and hid
-    system = await db.get_system(conn, system_id=member.system)
-
-    if member.color:
-        card.colour = int(member.color, 16)
-
-    if member.birthday:
-        bday_val = member.birthday.strftime("%b %d, %Y")
-        if member.birthday.year == 1:
-            bday_val = member.birthday.strftime("%b %d")
-        card.add_field(name="Birthdate", value=bday_val)
-
-    if member.pronouns:
-        card.add_field(name="Pronouns", value=member.pronouns)
-
-    if member.prefix or member.suffix:
-        prefix = member.prefix or ""
-        suffix = member.suffix or ""
-        card.add_field(name="Proxy Tags",
-                       value="{}text{}".format(prefix, suffix))
-
-    if member.description:
-        card.add_field(name="Description",
-                       value=member.description, inline=False)
-
-    card.set_footer(text="System ID: {} | Member ID: {}".format(
-        system.hid, member.hid))
-    return card
+def validate_url(url: str) -> bool:
+    u = urlparse(url)
+    return u.scheme in ["http", "https"] and u.netloc and u.path

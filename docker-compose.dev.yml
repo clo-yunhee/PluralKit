@@ -1,0 +1,6 @@
+# Exposes the DB so the bot can connect from outside Docker, useful for development
+version: '3'
+services:
+  db:
+    ports:
+      - "5432:5432"

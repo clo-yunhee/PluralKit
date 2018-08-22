@@ -11,6 +11,11 @@ services:
     environment:
     - CLIENT_ID
     - TOKEN
+    - "DATABASE_USER=postgres"
+    - "DATABASE_PASS=postgres"
+    - "DATABASE_HOST=db"
+    - "DATABASE_PORT=5432"
+    - "DATABASE_NAME=postgres"
     restart: always
   api:
     build: src/
