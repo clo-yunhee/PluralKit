@@ -1,0 +1,30 @@
+* {
+    box-sizing: border-box !important;
+}
+
+body {
+    font-family: 'Open Sans', sans-serif;
+}
+
+.member-card {
+    display: flex;
+    flex-direction: column;
+
+    width: 300px;
+    border-radius: 8pt;
+
+    .header {
+        padding: 1rem 1rem 0.5rem 1rem;
+        background-color: #3f89ff;
+        border-radius: 8pt 8pt 0 0;
+
+        .name {
+            color: white;
+            font-size: 16pt;
+        } 
+    }
+    
+    .description {
+        padding: 0 1rem;
+    }
+}

@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "preact": "^8.4.2",
+    "preact-router": "^2.6.1"
+  },
+  "devDependencies": {
+    "sass": "^1.17.2",
+    "typescript": "^3.3.3333"
+  }
+}
