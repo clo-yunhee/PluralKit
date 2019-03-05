@@ -1,10 +1,28 @@
 {
+  "name": "PluralKit-web",
+  "version": "0.1.0",
+  "description": "Web interface for PluralKit",
+  "private": true,
   "dependencies": {
-    "preact": "^8.4.2",
-    "preact-router": "^2.6.1"
+    "react": "^16.8.3",
+    "react-dom": "^16.8.3",
+    "react-router": "^4.3.1",
+    "react-router-dom": "^4.3.1",
+    "react-scripts": "2.1.5"
   },
-  "devDependencies": {
-    "sass": "^1.17.2",
-    "typescript": "^3.3.3333"
-  }
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
 }
