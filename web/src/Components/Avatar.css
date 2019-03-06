@@ -1,6 +1,13 @@
-.avatar { 
+.avatar {
+  border: none;
   border-radius: 50%;
-  height: 60px;
-  width: 60px;
-  margin-right: 20px;
+  box-shadow: 2px 5px 0px rgba(0,0,0,.1);
+  height: 2em;
+  width: 2em;
+  margin-right: 2vmin;
+
+  background-clip: padding-box;
+  background-color: transparent;
+  background-position: 50%;
+  background-size: 100%;
 }

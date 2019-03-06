@@ -12,7 +12,14 @@ class Avatar extends React.PureComponent {
       alt
     } = this.props
 
-    return <img src={url || NONE_URL} alt={alt} className="avatar" />
+    const actualUrl = url || NONE_URL
+
+    return (
+      <div
+        className='avatar' alt={alt}
+        style={{ backgroundImage: `url(${actualUrl})` }}
+      />
+    )
   }
 
 }

@@ -1,15 +1,18 @@
 .membercard {
   background: #2a2834;
-  border: 2px rgba(0,0,0,.2) solid;
-  border-radius: 20px;
-  box-shadow: 0 0 6px rgba(0,0,0,.6);
-  padding: 10px;
-  margin: 20px;
-  width: 100%;
+  border: 2px solid rgba(0,0,0,.2);
+  border-radius: 2vmin;
+  box-shadow: 0 0 10px 5px rgba(0,0,0,.3);
+  margin: 2vmin;
+  padding: 2vmin;
 }
 
-.membercard-header {
+.membercard-name {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: normal;
+  margin: .5vmin;
 }
+
+

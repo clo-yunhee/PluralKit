@@ -3,9 +3,32 @@
 
 }
 
+.system-header {
+
+}
+
+.system-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.system-tag::before {
+  content: 'Tag is: ';
+  font-family: monospace;
+}
+
+.system-tag {
+  font-size: .8em;
+}
+
+.system-description {
+}
 
 .system-members {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }

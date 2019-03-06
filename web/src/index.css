@@ -12,3 +12,20 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
+
+img.emoji { 
+  height: 1.45em;
+  margin-left: .05em;
+  margin-right: .1em;
+  object-fit: contain;
+  vertical-align: -.4em;
+  width: 1.45em;
+}
+
+h1 {
+  font-size: 1.3em;
+}
+
+h2 {
+  font-size: 1em;
+}
