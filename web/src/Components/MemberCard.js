@@ -25,9 +25,19 @@ class MemberCard extends React.PureComponent {
           </h2>
         </header>
 
-        <p className='membercard-description'>
-          {description}
-        </p>
+        <div className='membercard-info'>
+          <p className='membercard-description'>
+            {description}
+          </p>
+          <hr />
+          <p className='membercard-section'>
+            {pronouns}
+          </p>
+          <p className='membercard-section'>
+            {color && <span className='membercard-colorbubble' style={{ backgroundColor: `#${color}` }} />}
+            {birthday}
+          </p>
+        </div>
       </article>
     )
   }

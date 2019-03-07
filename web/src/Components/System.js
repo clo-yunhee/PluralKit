@@ -55,13 +55,15 @@ export default class System extends React.PureComponent {
           </h1>
         </header>
 
-        <p className='system-description'>
+        <div className='system-description'>
           <p className='system-tag'>
             <Twemoji>{tag}</Twemoji>
           </p>
 
-          {description}
-        </p>
+          <p>
+            {description}
+          </p>
+        </div>
 
         <div className='system-members'>
           {sortedMemberList}
