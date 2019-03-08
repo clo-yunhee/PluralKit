@@ -1,0 +1,41 @@
+h1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 1.5em;
+}
+
+a.button {
+  color: #f0f0f0;
+  background-color: #1c468d;
+  text-decoration: none;
+
+  font-size: .9em;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1vmin;
+
+  border-radius: 1vmin;
+  border: none;
+  box-shadow: 2px 5px 0 rgba(0,0,0,.1);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+a.button:hover, a.button:active {
+  background-color: #204f9f;
+  transition: .06s ease-in;
+}
+
+a.button:active {
+  box-shadow: none;
+  transform: translateY(5px);
+}
+
+section {
+  margin: 1vmin 10vw;
+  font-size: .9em;
+}

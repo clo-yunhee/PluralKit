@@ -7,7 +7,7 @@ import Avatar from './Avatar'
 
 import './System.css'
 
-export default class System extends React.PureComponent {
+class System extends React.PureComponent {
   constructor (props) {
     super(props)
 
@@ -72,3 +72,5 @@ export default class System extends React.PureComponent {
     )
   }
 }
+
+export default System

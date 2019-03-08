@@ -43,4 +43,4 @@ class MemberCard extends React.PureComponent {
   }
 }
 
-export default MemberCard;
+export default MemberCard
