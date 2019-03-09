@@ -15,13 +15,13 @@ class Home extends React.PureComponent {
   render () {
     return (
       <>
-        <header>
+        <header className='home-header'>
           <h1>
             <Avatar url={AVATAR_URL} /> PluralKit
           </h1>
           <a
             href={INVITE_URL} target='_blank' rel='noreferrer noopener'
-            className='button' draggable={false}
+            className='home-button' draggable={false}
           >
             Add me to Discord!
           </a>
@@ -34,13 +34,13 @@ class Home extends React.PureComponent {
             It allows you to register systems, maintain system information, set up message proxying, log switches, and more.
           </p>
         </section>
-        <section>
-          <a href={LOGIN_URL} className='button' draggable={false}>
+        <section className='home-login'>
+          <a href={LOGIN_URL} className='home-button' draggable={false}>
             Login with Discord
           </a>
         </section>
-        <hr />
-        <footer>
+        <hr className='home-sep' />
+        <footer className='home-footer'>
           <ol>
             <li>By @Ske#6201</li>
             <li><a href='https://github.com/xSke/PluralKit' className='link'>GitHub</a></li>

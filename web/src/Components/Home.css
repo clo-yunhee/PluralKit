@@ -1,4 +1,4 @@
-h1 {
+.home-header h1 {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6,7 +6,7 @@ h1 {
   font-size: 1.5em;
 }
 
-a.button {
+a.home-button {
   color: #f0f0f0;
   background-color: #1c468d;
   text-decoration: none;
@@ -25,17 +25,17 @@ a.button {
   font-weight: 600;
 }
 
-a.button:focus, a.button:hover, a.button:active {
+a.home-button:focus, a.home-button:hover, a.home-button:active {
   background-color: #204f9f;
   transition: .06s ease-in;
 }
 
-a.button:active {
+a.home-button:active {
   box-shadow: none;
   transform: translateY(5px);
 }
 
-section {
+section.home-description, section.home-login {
   margin: 1vmin 10vw;
 }
 
@@ -43,12 +43,12 @@ section.home-description {
   font-size: .9em;
 }
 
-hr {
+hr.home-sep {
   margin-top: 3vmin;
   width: 60vw;
 }
 
-footer ol {
+footer.home-footer ol {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -58,7 +58,7 @@ footer ol {
   font-size: .7em;
 }
 
-footer ol li:not(:last-child)::after {
+footer.home-footer ol li:not(:last-child)::after {
   content: '';
   display: inline-block;
   width: .7em;
