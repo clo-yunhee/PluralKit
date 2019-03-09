@@ -16,8 +16,8 @@ class App extends React.PureComponent {
             <Route path='/api/login' exact component={LoginCallback} />
 
             {/* Page routes */}
-            <Route path='/' component={HomePage} />
             <Route path='/system/:id' component={SystemPage} />
+            <Route path='/' component={HomePage} />
           </Switch>
         </main>
       </Router>
