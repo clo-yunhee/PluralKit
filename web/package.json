@@ -4,7 +4,7 @@
   "description": "Web interface for PluralKit",
   "private": true,
   "engines": {
-    "npm": "6.8.0",
+    "npm": "6.9.0",
     "node": "11.10.1"
   },
   "dependencies": {
@@ -30,5 +30,6 @@
     "not dead",
     "not ie <= 11",
     "not op_mini all"
-  ]
+  ],
+  "devDependencies": {}
 }
