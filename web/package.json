@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Web interface for PluralKit",
   "private": true,
+  "engines": {
+    "npm": "6.8.0",
+    "node": "11.10.1"
+  },
   "dependencies": {
     "query-string": "^6.3.0",
     "react": "^16.8.3",
