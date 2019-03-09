@@ -25,7 +25,7 @@ a.button {
   font-weight: 600;
 }
 
-a.button:hover, a.button:active {
+a.button:focus, a.button:hover, a.button:active {
   background-color: #204f9f;
   transition: .06s ease-in;
 }
@@ -37,5 +37,46 @@ a.button:active {
 
 section {
   margin: 1vmin 10vw;
+}
+
+section.home-description {
   font-size: .9em;
 }
+
+hr {
+  margin-top: 3vmin;
+  width: 60vw;
+}
+
+footer ol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  font-size: .7em;
+}
+
+footer ol li:not(:last-child)::after {
+  content: '';
+  display: inline-block;
+  width: .7em;
+  height: .7em;
+  transform: scaleX(.5) rotate(45deg) scale(.9);
+  background-color: #f0f0f0;
+
+  margin: 0 1vw;
+}
+
+.link {
+  color: #03a9f4;
+  text-decoration: none;
+}
+
+.link:hover, .link:focus, .link:active {
+  color: #f05e26;
+  text-decoration: underline;
+  text-decoration-color: #ccc;
+}
+

@@ -1,6 +1,7 @@
 import React from 'react'
-import Twemoji from '../Utils/Twemoji'
 import Avatar from './Avatar'
+
+import { LOGIN_URL } from '../Utils/oauth2.js'
 
 import './Home.css'
 
@@ -33,6 +34,19 @@ class Home extends React.PureComponent {
             It allows you to register systems, maintain system information, set up message proxying, log switches, and more.
           </p>
         </section>
+        <section>
+          <a href={LOGIN_URL} className='button' draggable={false}>
+            Login with Discord
+          </a>
+        </section>
+        <hr />
+        <footer>
+          <ol>
+            <li>By @Ske#6201</li>
+            <li><a href='https://github.com/xSke/PluralKit' className='link'>GitHub</a></li>
+            <li><a href='https://discord.gg/PczBt78' className='link'>Support Discord</a></li>
+          </ol>
+        </footer>
       </>
     )
   }
