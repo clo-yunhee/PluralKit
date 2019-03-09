@@ -1,0 +1,45 @@
+
+.not-found-container {
+  display: flex;
+  flex-direction: column;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.not-found-code {
+  margin: 2vmin 0;
+  font-size: 5em;
+  font-weight: 600;
+  letter-spacing: 4vw;
+}
+
+.not-found-message-box {
+  display: flex;
+  align-items: center;
+
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  font-style: italic;
+  color: #ccc;
+}
+
+.not-found-message-box .avatar {
+  font-size: 1.5em;
+}
+
+.not-found-oops::before {
+  content: '\201C';
+}
+
+.not-found-oops::after {
+  content: '\201D';
+} 
+  
+.not-found-oops {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+
+  transition: opacity .7s ease-out;
+}
+
+

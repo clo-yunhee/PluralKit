@@ -6,7 +6,7 @@ import { LOGIN_URL } from '../Utils/oauth2.js'
 import './Home.css'
 
 
-const AVATAR_URL = 'https://cdn.discordapp.com/avatars/466378653216014359/6ca415864e7886408035d96a4d2fe876.png'
+export const AVATAR_URL = 'https://cdn.discordapp.com/avatars/466378653216014359/6ca415864e7886408035d96a4d2fe876.png'
 
 const INVITE_URL = 'https://discordapp.com/oauth2/authorize?client_id=466378653216014359&scope=bot&permissions=536995904'
 

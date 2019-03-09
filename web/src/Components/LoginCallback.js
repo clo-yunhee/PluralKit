@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter, Redirect } from 'react-router-dom'
+import { Redirect } from 'react-router-dom'
 import queryString from 'query-string'
 import Loading from './Loading'
 import { REDIRECT_URL, ENC_CREDS } from '../Utils/oauth2'
