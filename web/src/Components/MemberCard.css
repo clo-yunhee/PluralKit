@@ -6,8 +6,6 @@
   margin: 2vmin;
   padding: 2vmin;
   box-sizing: border-box;
-  /* max-width: calc(50% - 2 * 2vmin);  */
-  /* TODO: adaptive sizing */
 }
 
 .membercard-header {

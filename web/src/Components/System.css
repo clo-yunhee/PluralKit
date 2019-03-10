@@ -46,8 +46,6 @@ root:{
   white-space: pre-wrap;
   display: grid;
   grid-template-columns: 50% 2px 50%;
-  /* min-width: 250px; */
-  /* width: 60%; */
   margin: 0 auto;
 }
 
