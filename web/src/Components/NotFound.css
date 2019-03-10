@@ -26,14 +26,6 @@
   font-size: 1.5em;
 }
 
-.not-found-oops::before {
-  content: '\201C';
-}
-
-.not-found-oops::after {
-  content: '\201D';
-}
-
 .not-found-oops {
   display: flex;
   flex-direction: row;
