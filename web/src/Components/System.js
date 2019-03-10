@@ -20,6 +20,7 @@ class System extends React.PureComponent {
   componentDidMount () {
     requestGet(API_ROOT + '/systems/' + this.state.id, data => {
       this.setState({ system: data })
+      console.log(data)
     })
   }
 
@@ -54,15 +55,23 @@ class System extends React.PureComponent {
             {name ? <Twemoji>{name}</Twemoji> : <em>Unnamed</em>}
           </h1>
         </header>
+        <div className='system-description-container'>
+          <div className='system-description'>
+            <div>
+              <p className='system-tag'>
+                <Twemoji>{tag}</Twemoji>
+              </p>
+              <p className='system-members-length'>
+                <Twemoji>{members.length}</Twemoji>
+              </p>
+            </div>
 
-        <div className='system-description'>
-          <p className='system-tag'>
-            <Twemoji>{tag}</Twemoji>
-          </p>
+            <div className='vertLine'></div>
 
-          <p>
-            {description}
-          </p>
+            <div>
+              {description}
+            </div>
+          </div>
         </div>
 
         <div className='system-members'>

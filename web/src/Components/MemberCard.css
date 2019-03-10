@@ -6,7 +6,8 @@
   margin: 2vmin;
   padding: 2vmin;
   box-sizing: border-box;
-  max-width: calc(50% - 2 * 2vmin); /* TODO: adaptive sizing */
+  /* max-width: calc(50% - 2 * 2vmin);  */
+  /* TODO: adaptive sizing */
 }
 
 .membercard-header {
@@ -26,7 +27,7 @@
 }
 
 .membercard-description {
-
+  white-space: pre-wrap;
 }
 
 .membercard-section {
@@ -40,7 +41,7 @@
 
 .membercard-colorbubble {
   display: inline;
-  margin-right: 1vmin; 
+  margin-right: 1vmin;
   padding: 0;
   width: 1.4em;
   height: 1.4em;
