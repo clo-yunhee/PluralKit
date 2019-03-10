@@ -26,20 +26,37 @@
   font-size: 1.5em;
 }
 
-.not-found-oops::before {
-  content: '\201C';
-}
-
-.not-found-oops::after {
-  content: '\201D';
-} 
-  
 .not-found-oops {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-
-  transition: opacity .7s ease-out;
 }
 
+/* Animation CSS */
 
+@keyframes vanish {
+  from {opacity: 1;}
+  to {opacity: 0;}
+}
+
+#oops1{
+  position: relative;
+  top: 15px;
+
+  animation-name: vanish;
+  animation-duration: 2s;
+  animation-delay: 2s;
+  animation-fill-mode: forwards;
+}
+
+#oops2{
+  opacity: 0;
+  position: relative;
+  bottom: 15px;
+
+  animation-name: vanish;
+  animation-duration: 2s;
+  animation-delay: 5s;
+  animation-fill-mode: forwards;
+  animation-direction: reverse;
+}
