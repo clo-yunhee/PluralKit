@@ -7,7 +7,7 @@ import './NotFound.css'
 
 class NotFound extends React.PureComponent {
   componentDidMount () {
-    setTimeout(() => this.props.history.push('/'), 10000)
+    setTimeout(() => this.props.history.push('/'), 3000)
   }
 
   render () {
