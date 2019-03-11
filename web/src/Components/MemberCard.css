@@ -3,10 +3,8 @@
   border: 2px solid rgba(0,0,0,.2);
   border-radius: 2vmin;
   box-shadow: 0 0 10px 5px rgba(0,0,0,.3);
-  margin: 2vmin;
   padding: 2vmin;
   box-sizing: border-box;
-  max-width: calc(50% - 2 * 2vmin); /* TODO: adaptive sizing */
 }
 
 .membercard-header {
@@ -47,4 +45,31 @@
   border: none;
   border-radius: 50%;
   box-shadow: 0 0 8px 2px rgba(0,0,0,.4) inset;
+}
+
+
+/* number of columns per screen size */
+
+@media only screen and (min-width: 1600px) {
+  .membercard {
+    width: calc(25% - 2 * 2vmin);
+  }
+}
+
+@media only screen and (max-width: 1599px) and (min-width: 1280px) {
+  .membercard {
+    width: calc(33.33% - 2 * 2vmin);
+  }
+}
+
+@media only screen and (max-width: 1279px) and (min-width: 596px) {
+  .membercard {
+    width: calc(50% - 2 * 2vmin);
+  }
+}
+
+@media only screen and (max-width: 595px) {
+  .membercard {
+    width: calc(100% - 2 * 2vmin);
+  }
 }

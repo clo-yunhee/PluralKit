@@ -6,12 +6,8 @@ import './NotFound.css'
 
 
 class NotFound extends React.PureComponent {
-  constructor (props) {
-    super(props);
-  }
   componentDidMount () {
-    Promise.resolve(0)
-      .then(setTimeout(() => this.props.history.push('/'), 10000))
+    setTimeout(() => this.props.history.push('/'), 10000)
   }
 
   render () {
@@ -23,15 +19,13 @@ class NotFound extends React.PureComponent {
         <div className='not-found-message-box'>
           <Avatar url={AVATAR_URL} />
           <span>
-          <span id='oops1'className='not-found-oops'>
-            Oops... Page not found~
+            <span id='oops1' className='not-found-oops'>
+              Oops... Page not found~
+            </span>
+            <span id='oops2' className='not-found-oops'>
+              Redirecting you back home~
+            </span>
           </span>
-          <span id='oops2'className='not-found-oops'>
-            Redirecting you back home~
-          </span>
-          </span>
-
-          {/*className='not-found-oops' data-text={this.state.text}/>*/}
         </div>
       </div>
     )

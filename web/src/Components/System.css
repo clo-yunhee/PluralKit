@@ -27,8 +27,9 @@
 
 .system-members {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: center;
-  flex-wrap: wrap;
+  min-width: calc(100vw - 2vmin);
+  box-sizing: border-box;
+  margin: 2vmin 0;
+  padding: 2vmin 0;
 }
+

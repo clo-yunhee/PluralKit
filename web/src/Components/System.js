@@ -1,4 +1,5 @@
 import React from 'react'
+import MagicGrid from 'magic-grid-react'
 import { requestGet, API_ROOT } from '../Utils/fetch'
 import Twemoji from '../Utils/Twemoji'
 import MemberCard from './MemberCard'
@@ -66,7 +67,9 @@ class System extends React.PureComponent {
         </div>
 
         <div className='system-members'>
-          {sortedMemberList}
+          <MagicGrid gutter='.5vmin' animate={true} useMin={true}>
+            {sortedMemberList}
+          </MagicGrid>
         </div>
       </section>
     )
