@@ -26,7 +26,6 @@
 }
 
 .system-members {
-  display: flex;
   min-width: calc(100vw - 2vmin);
   box-sizing: border-box;
   margin: 2vmin 0;

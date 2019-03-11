@@ -24,7 +24,7 @@
 }
 
 .membercard-description {
-
+  white-space: pre-wrap;
 }
 
 .membercard-section {
@@ -38,7 +38,7 @@
 
 .membercard-colorbubble {
   display: inline;
-  margin-right: 1vmin; 
+  margin-right: 1vmin;
   padding: 0;
   width: 1.4em;
   height: 1.4em;
