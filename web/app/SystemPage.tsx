@@ -16,7 +16,7 @@ export default class SystemPage extends Component<Props, State> {
     }
 
     async fetchData() {
-        const data = await fetch(API_ROOT + "/systems/" + this.props.id);
+        const data = await fetch(API_ROOT + "/s/" + this.props.id);
         const json = await data.json();
         this.setState({system: json, ...this.state});
     }
