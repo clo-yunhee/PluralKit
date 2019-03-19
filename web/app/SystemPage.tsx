@@ -18,6 +18,8 @@ export default class SystemPage extends Component<Props, State> {
     async fetchData() {
         const data = await fetch(API_ROOT + "/s/" + this.props.id);
         const json = await data.json();
+        const member_data = await fetch(API_ROOT + "/s/" + this.props.id + "/members"); //the members was split into another page
+        json.members = await member_data.json(); //this is so the rest can stay as it is
         this.setState({system: json, ...this.state});
     }
 
