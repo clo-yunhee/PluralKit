@@ -1,7 +1,9 @@
 import React from 'react'
 import Avatar from './Avatar'
 
-import { LOGIN_URL } from '../Utils/oauth2.js'
+import { Link } from 'react-router-dom'
+
+import { LOGIN_URL } from '../Utils/oauth2'
 
 import './Home.css'
 

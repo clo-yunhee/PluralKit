@@ -5,7 +5,7 @@ import './App.css'
 import HomePage from './Components/Home'
 import SystemPage from './Components/System'
 import NotFoundPage from './Components/NotFound'
-import LoginCallback from './Components/LoginCallback'
+import LoginHandler from './Components/LoginHandler'
 
 class App extends React.PureComponent {
   render () {
@@ -14,7 +14,7 @@ class App extends React.PureComponent {
         <main className='app'>
           <Switch>
             {/* API routes */}
-            <Route path='/api/login' exact component={LoginCallback} />
+            <Route path='/login' exact component={LoginHandler} />
 
             {/* Page routes */}
             <Route path='/system/:id' exact component={SystemPage} />

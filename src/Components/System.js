@@ -1,6 +1,6 @@
 import React from 'react'
 import MagicGrid from 'magic-grid-react'
-import { requestGet, API_ROOT } from '../Utils/fetch'
+import { requestGet } from '../Utils/fetch'
 import Twemoji from '../Utils/Twemoji'
 import MemberCard from './MemberCard'
 import Loading from './Loading'
@@ -14,19 +14,37 @@ class System extends React.PureComponent {
 
     this.state = {
       id: props.match.params.id,
-      system: null
+      system: null,
+      members: null
     }
   }
 
   componentDidMount () {
-    requestGet(API_ROOT + '/systems/' + this.state.id, data => {
-      this.setState({ system: data })
+    requestGet(`/s/${this.state.id}`, data => {
+      this.setState({
+        system: data
+      })
+    })
+
+    requestGet(`/s/${this.state.id}/members`, data => {
+      this.setState({
+        members: data
+      })
     })
   }
 
   render () {
-    if (!this.state.system) {
+    let {
+      system,
+      members
+    } = this.state
+
+    if (!system) {
       return <Loading />
+    }
+
+    if (!members) {
+      members = []
     }
 
     const {
@@ -34,9 +52,8 @@ class System extends React.PureComponent {
       name,
       description,
       tag,
-      avatar_url,
-      members
-    } = this.state.system
+      avatar_url
+    } = system
 
     const sortedMemberList = members.sort((s1, s2) => {
       const s1name = s1.name.toLocaleUpperCase()
