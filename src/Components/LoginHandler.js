@@ -4,8 +4,6 @@ import queryString from 'query-string'
 import Loading from './Loading'
 import { requestToken } from '../Utils/fetch'
 
-import { LOGIN_URL } from '../Utils/oauth2'
-
 class LoginHandler extends React.PureComponent {
   constructor (props) {
     super(props)
