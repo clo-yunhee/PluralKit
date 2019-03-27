@@ -1,57 +1,11 @@
-function handleErrors(response) {
-  if (response.ok && response.status >= 200 && response.status < 300) {
-    return response
-  } else {
-    throw new Error(response.statusText)
-  }
-}
+import { requestWithoutData as req } from './ajax'
 
-function json(response) {
-  return response.text().then(resText => {
-    try {
-      return JSON.parse(resText)
-    } catch (err) {
-      throw new Error(resText)
-    }
-  })
-}
+export const fetchSystem = req('system', 'get', '/s/{system}')
 
-export function requestGet(path, callback) {
-  if (!callback) callback = () => {}
+export const fetchMembers = req('system members', 'get', '/s/{system}/members')
 
-  return fetch(API_ROOT + path)
-    .then(handleErrors)
-    .then(json)
-    .then(callback)
-}
+export const fetchSwitches = req('system switches', 'get', '/s/{system}/switches')
 
-export function requestPost(path, data, callback) {
-  if (!callback) callback = () => {}
+export const fetchMember = req('system member', 'get', '/s/{member}')
 
-  return fetch(API_ROOT + path, data, {
-    method: 'post',
-    mode: 'no-cors',
-    body: JSON.stringify(data),
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  })
-    .then(handleErrors)
-    .then(json)
-    .then(callback)
-}
 
-export function requestToken(code, callback) {
-  return fetch(API_ROOT + '/discord_oauth', {
-    method: 'post',
-    mode: 'no-cors',
-    body: encodeURIComponent(code),
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    }
-  })
-    .then(handleErrors)
-    .then(callback)
-}
-
-export const API_ROOT = 'https://pkapi.astrid.fun'

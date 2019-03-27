@@ -38,6 +38,12 @@ class Home extends React.PureComponent {
           <a href={LOGIN_URL} className='home-button' draggable={false}>
             Login with Discord
           </a>
+
+          <div id='token-input'>
+            <button onClick={ ()=>console.log('text') } className='home-button' id='token-input-button' draggable={false} contenteditable>
+              Enter PK token
+            </button>
+          </div>
         </section>
         <hr className='home-sep' />
         <footer className='home-footer'>

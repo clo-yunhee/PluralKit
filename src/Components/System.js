@@ -1,6 +1,6 @@
 import React from 'react'
 import MagicGrid from 'magic-grid-react'
-import { requestGet } from '../Utils/fetch'
+import { fetchSystem, fetchMembers } from '../Utils/fetch'
 import Twemoji from '../Utils/Twemoji'
 import MemberCard from './MemberCard'
 import Loading from './Loading'
@@ -20,13 +20,13 @@ class System extends React.PureComponent {
   }
 
   componentDidMount () {
-    requestGet(`/s/${this.state.id}`, data => {
+    fetchSystem({ system: this.state.id }, data => {
       this.setState({
         system: data
       })
     })
 
-    requestGet(`/s/${this.state.id}/members`, data => {
+    fetchMembers({ system: this.state.id }, data => {
       this.setState({
         members: data
       })

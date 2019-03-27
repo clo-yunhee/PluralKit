@@ -2,7 +2,7 @@ import React from 'react'
 import { Redirect } from 'react-router-dom'
 import queryString from 'query-string'
 import Loading from './Loading'
-import { requestToken } from '../Utils/fetch'
+import { requestToken } from '../Utils/ajax'
 
 class LoginHandler extends React.PureComponent {
   constructor (props) {
